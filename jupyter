@@ -1,0 +1,87 @@
+import pandas as pd
+import numpy as np
+
+# Load Handkey CSV file
+
+df = pd.read_csv("Summan Handkey Record ( 01-31 Jul 23).csv")
+days_in_month = 31
+k = days_in_month + 2
+
+# Melting columns
+
+list = ['01 In ', '01 Out', '02 In ', '02 Out', '03 In ', '03 Out', '04 In ', '04 Out', '05 In ', '05 Out', \
+          '06 In ', '06 Out', '07 In ', '07 Out', '08 In ', '08 Out', '09 In ', '09 Out', '10 In ', '10 Out', \
+          '11 In ', '11 Out', '12 In ', '12 Out', '13 In ', '13 Out', '14 In ', '14 Out', '15 In ', '15 Out', \
+          '16 In ', '16 Out', '17 In ', '17 Out', '18 In ', '18 Out', '19 In ', '19 Out', '20 In ', '20 Out', \
+          '21 In ', '21 Out', '22 In ', '22 Out', '23 In ', '23 Out', '24 In ', '24 Out', '25 In ', '25 Out', \
+          '26 In ', '26 Out', '27 In ', '27 Out', '28 In ', '28 Out', '29 In ', '29 Out', '30 In ', '30 Out', \
+          '31 In ', '31 Out']
+df = pd.melt(df, id_vars=['Emp Code', 'Name', 'Company Code', 'Company Name', 'Position Name'], value_vars=list)
+
+# Replace string into lower cases
+
+df['Name'] = df['Name'].str.lower()
+df['Company Name'] = df['Company Name'].str.lower()
+
+# Replace parentheses in string
+
+df['Company Name'] = df['Company Name'].str.strip().replace(' ', '_').str.replace('(', '').str.replace(')', '')
+df['Company Name'] = df['Company Name'].str.replace('__', '_').str.replace('__', '_').str.replace('__', '_')
+
+# Add Column for Date
+
+df['date'] = '2023.07.' + df.variable.str[:2]
+
+# Add Column for in time or out time
+
+df['in_out'] = np.where(df['variable'].str.contains('In'), 'in_time', 'out_time')
+
+# Function
+
+def handkey(sc):
+    dfsc = df[df['Company Name'].str.contains(sc)].dropna()
+    dfsc['count'] = 1
+    dfsc_list = dfsc[['Name', 'Emp Code']].sort_values('Name').drop_duplicates().reset_index(drop=True)
+    dfsc_list.index += 1
+    dfsc_inout = dfsc.dropna().pivot(index=['Emp Code', 'Name', 'date'], \
+           columns='in_out', values='value').reset_index()
+    dfsc_inout.index += 1
+    dfsc_summary = pd.pivot_table(dfsc, values='count', index=['Emp Code', 'Name'], \
+               columns='date', aggfunc='min',dropna=True, sort=True).reset_index()
+    dfsc_summary['total'] = dfsc_summary.T[2:k].sum().T
+    dfsc_summary.index += 1
+    with pd.ExcelWriter(sc+'.xlsx') as writer:
+        dfsc_list.to_excel(writer, sheet_name='list of workers')
+        dfsc_inout.to_excel(writer, sheet_name='in out time')
+        dfsc_summary.to_excel(writer, sheet_name='summary', index=True)
+    show = print('Total', max(dfsc_list.index), 'workers and', max(dfsc_inout.index), \
+                 'mandays, avg', round(max(dfsc_inout.index)/max(dfsc_list.index),1), 'md per worker')
+    return show
+
+# Subcontractors Summary
+
+sclist = sorted(df['Company Name'].unique())
+for i,j in enumerate(sclist):
+    print(i+1, '-', j)
+    handkey(j)
+    print()
+
+# Monthly Summary
+
+dfsum = df.dropna(subset='value')
+dfsum['count'] = 1
+dfsum_list = dfsum[['Emp Code', 'Name', 'Company Name', 'Position Name']].sort_values('Name').drop_duplicates().reset_index(drop=True)
+dfsum_list.index += 1
+dfsum_inout = dfsum.dropna().pivot(index=['Emp Code', 'Name', 'date'], \
+                                   columns='in_out', values='value').reset_index()
+dfsum_inout.index += 1
+dfsum_summary = pd.pivot_table(dfsum, values='count', index=['Emp Code', 'Name'], \
+               columns='date', aggfunc='min',dropna=True, sort=True).reset_index()
+dfsum_summary['total'] = dfsum_summary.T[2:k].sum().T
+dfsum_summary.index += 1
+with pd.ExcelWriter('monthly summary.xlsx') as writer:
+    dfsum_list.to_excel(writer, sheet_name='list of workers')
+    dfsum_inout.to_excel(writer, sheet_name='in out time')
+    dfsum_summary.to_excel(writer, sheet_name='summary', index=True)
+print('Total', max(dfsum_list.index), 'workers and', max(dfsum_inout.index), \
+      'mandays, avg', round(max(dfsum_inout.index)/max(dfsum_list.index),1), 'md per worker')
