@@ -79,9 +79,15 @@ dfsum_summary = pd.pivot_table(dfsum, values='count', index=['Emp Code', 'Name']
                columns='date', aggfunc='min',dropna=True, sort=True).reset_index()
 dfsum_summary['total'] = dfsum_summary.T[2:k].sum().T
 dfsum_summary.index += 1
+
+# Monthly Summary to Excel File
+
 with pd.ExcelWriter('monthly summary.xlsx') as writer:
     dfsum_list.to_excel(writer, sheet_name='list of workers')
     dfsum_inout.to_excel(writer, sheet_name='in out time')
     dfsum_summary.to_excel(writer, sheet_name='summary', index=True)
+
+# Show totol workers and mandays in month in jupyter
+
 print('Total', max(dfsum_list.index), 'workers and', max(dfsum_inout.index), \
       'mandays, avg', round(max(dfsum_inout.index)/max(dfsum_list.index),1), 'md per worker')
